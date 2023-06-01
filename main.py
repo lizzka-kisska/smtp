@@ -3,7 +3,7 @@ import socket
 import ssl
 import sys
 
-HOST_YA = 'smtp.yandex.ru'
+HOST = 'smtp.yandex.ru'
 PORT = 465
 USER_FROM = 'la-work-hard@yandex.ru'
 BOUNDARY = 'bound2003'
@@ -19,7 +19,7 @@ with open('configuration/config.txt', 'r') as config_file:
     SUBJECT = lines[1]
     FILENAMES = lines[2].split(', ')
 
-with open('password.txt', 'r') as password_file:
+with open('password_yandex.txt', 'r') as password_file:
     PASSWORD = password_file.read().strip()
 
 
@@ -35,6 +35,9 @@ def create_headers():
 def create_text_body():
     with open('configuration/plain_text.txt', 'r') as message_file:
         content = message_file.read()
+    if content.startswith('.\n'):
+        content = content[2:]
+    content = content.replace('\n.', '\n..')
     return f'--{BOUNDARY}\n' \
            f'Content-Type: text/html; charset=utf-8\n' \
            f'\n' \
@@ -46,16 +49,21 @@ def create_attachment_body(file):
     with open(path, 'rb') as attachment_file:
         attachment = attachment_file.read()
         attachment_base64 = base64.b64encode(attachment).decode()
+    content_type = ''
     match file.split('.')[1]:
-        case 'jpg': content_type = 'image/jpeg'
-        case 'mp3': content_type = 'audio/basic'
-        case 'mp4': content_type = 'video/mpeg'
-        case 'pdf': content_type = 'application/pdf'
+        case 'jpg':
+            content_type = 'image/jpeg'
+        case 'mp3':
+            content_type = 'audio/basic'
+        case 'mp4':
+            content_type = 'video/mpeg'
+        case 'pdf':
+            content_type = 'application/pdf'
     return f'--{BOUNDARY}\n' \
            f'Content-Disposition: attachment;\n' \
            f'\tfilename={file}\n' \
            f'Content-Transfer-Encoding: base64\n' \
-           f'Content-Type: image/jpeg;\n' \
+           f'Content-Type: {content_type};\n' \
            f'\tname={file}\n' \
            f'\n' \
            f'{attachment_base64}\n'
@@ -89,8 +97,8 @@ def request(sock, data):
 
 def send_data():
     try:
-        with socket.create_connection((HOST_YA, PORT)) as sock:
-            with ssl_contex.wrap_socket(sock, server_hostname=HOST_YA) as client:
+        with socket.create_connection((HOST, PORT)) as sock:
+            with ssl_contex.wrap_socket(sock, server_hostname=HOST) as client:
                 client.recv(1024)
                 request(client, f'ehlo {USER_FROM}')
 
@@ -107,7 +115,7 @@ def send_data():
                 request(client, 'DATA')
                 request(client, message_prepare())
     except OSError:
-        print('There are problems maybe there is no network')
+        print('You entered the file names incorrectly (you need, for example: name1, name2)')
         sys.exit(0)
 
 
